@@ -1,0 +1,67 @@
+const path = require('path')
+const isDev = process.env.NODE_ENV === 'development'
+const isLibrary = process.env.NODE_ENV === 'library'
+
+const WebpackDynamicPublicPathPlugin = require('webpack-dynamic-public-path')
+
+module.exports = {
+  publicPath: isDev ? '' : './dist',
+  outputDir: '../dist',
+  lintOnSave: false,
+  productionSourceMap: false,
+  filenameHashing: false,
+  transpileDependencies: ['yjs', 'lib0', 'quill'],
+  chainWebpack: config => {
+    // 移除 preload 插件
+    config.plugins.delete('preload')
+    // 移除 prefetch 插件
+    config.plugins.delete('prefetch')
+    // 支持运行时设置public path
+    if (!isDev) {
+      config
+        .plugin('dynamicPublicPathPlugin')
+        .use(WebpackDynamicPublicPathPlugin, [
+          { externalPublicPath: 'window.externalPublicPath' }
+        ])
+    }
+    // 给插入html页面内的js和css添加hash参数
+    if (!isLibrary) {
+      config.plugin('html').tap(args => {
+        args[0].hash = true
+        return args
+      })
+    }
+  },
+  configureWebpack: {
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src/'),
+        'simple-mind-map': path.resolve(__dirname, '../simple-mind-map'),
+        // 同时需要处理子路径导入
+        'simple-mind-map/src': path.resolve(__dirname, '../simple-mind-map/src')
+      }
+    }
+  },
+  devServer: {
+    // 代理配置 - 将 API 请求转发到后端服务
+    proxy: {
+      '/ai': {
+        target: 'http://localhost:18080',
+        changeOrigin: true,
+        ws: true
+      },
+      '/api': {
+        target: 'http://localhost:18080',
+        changeOrigin: true
+      },
+      '/files': {
+        target: 'http://localhost:18080',
+        changeOrigin: true
+      },
+      '/history': {
+        target: 'http://localhost:18080',
+        changeOrigin: true
+      }
+    }
+  }
+}
